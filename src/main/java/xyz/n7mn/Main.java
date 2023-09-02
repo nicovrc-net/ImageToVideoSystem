@@ -80,7 +80,7 @@ public class Main {
 
             try {
                 new File("./proxy.yml").createNewFile();
-                PrintWriter writer = new PrintWriter("./config.yml");
+                PrintWriter writer = new PrintWriter("./proxy.yml");
                 writer.print("""
                         # ProxyIP:ProxyPort
                         Proxy:
