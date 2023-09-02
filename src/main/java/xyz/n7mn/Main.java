@@ -231,7 +231,7 @@ public class Main {
         String fileId = sb.substring(0, 16);
 
         if (new File("./temp/"+fileId).exists()){
-            return fileId+"/main.m3u8";
+            return fileId+"/1.ts";
         }
 
         new File("./temp/"+fileId).mkdir();
