@@ -171,7 +171,8 @@ public class Main {
                             } else {
                                 //System.out.println("create video");
                                 httpText = ("HTTP/1."+httpVersion+" 302 Found\n" +
-                                        "Location: " + baseUrl + "video/" + videoUri + "\r\n").replaceAll("\0","").getBytes(StandardCharsets.UTF_8);
+                                        "Date: "+new Date()+"\n" +
+                                        "Location: " + baseUrl + "video/" + videoUri + "\n\njump to "+baseUrl + "video/" + videoUri).replaceAll("\0","").getBytes(StandardCharsets.UTF_8);
                             }
 
                             out.write(httpText);
