@@ -305,7 +305,7 @@ public class Main {
 
         new File("./temp/"+fileId).mkdir();
 
-        String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 2 -r 1 ./temp/"+fileId+"/1.ts";
+        String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 5 -r 1 ./temp/"+fileId+"/1.ts";
         //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
         try {
@@ -316,37 +316,18 @@ public class Main {
             e.fillInStackTrace();
         }
 
-        FileInputStream inputStream = new FileInputStream("./temp/" + fileId + "/1.ts");
-        byte[] read = inputStream.readAllBytes();
-
-        for (int i = 2; i <= 5; i++){
-            FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/"+i+".ts");
-            ts_stream.write(read);
-            ts_stream.close();
-        }
-
-        String m3u8 = """
-                #EXTM3U
-                #EXT-X-VERSION:3
-                #EXT-X-TARGETDURATION:1
-                #EXT-X-MEDIA-SEQUENCE:0
-                #EXTINF:2.000000,
-                1.ts
-                #EXTINF:2.000000,
-                2.ts
-                #EXTINF:2.000000,
-                3.ts
-                #EXTINF:2.000000,
-                4.ts
-                #EXTINF:2.000000,
-                5.ts
-                #EXT-X-ENDLIST         
-                """;
-
-        FileOutputStream m3u8_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
-        m3u8_stream.write(m3u8.getBytes(StandardCharsets.UTF_8));
-        m3u8_stream.close();
-
+        byte[] read = """
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:5
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:5.000000,
+1.ts
+#EXT-X-ENDLIST
+                """.getBytes(StandardCharsets.UTF_8);
+        FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
+        ts_stream.write(read);
+        ts_stream.close();
 
         return fileId+"/main.m3u8";
 
