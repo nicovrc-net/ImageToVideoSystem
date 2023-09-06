@@ -95,85 +95,118 @@ public class Main {
         }
 
         // HTTP通信を受け取る
-        new Thread(()->{
-            try {
-                ServerSocket socket = new ServerSocket(8888);
-                while (true) {
-                    System.gc();
-                    Socket sock = socket.accept();
+        ServerSocket socket = null;
+        try {
+            socket = new ServerSocket(8888);
+            while (true) {
+                Socket sock = socket.accept();
+                System.gc();
+                new Thread(() -> {
+                    try {
 
-                    final String proxyAddress;
-                    final int proxyPort;
-                    if (proxyList.length > 0){
-                        int i = new SecureRandom().nextInt(0, proxyList.length);
-                        String[] split = proxyList[i].split(":");
-                        proxyAddress = split[0];
-                        proxyPort = Integer.parseInt(split[1]);
-                    } else {
-                        proxyAddress = "";
-                        proxyPort = 0;
-                    }
+                        final String proxyAddress;
+                        final int proxyPort;
+                        if (proxyList.length > 0) {
+                            int i = new SecureRandom().nextInt(0, proxyList.length);
+                            String[] split = proxyList[i].split(":");
+                            proxyAddress = split[0];
+                            proxyPort = Integer.parseInt(split[1]);
+                        } else {
+                            proxyAddress = "";
+                            proxyPort = 0;
+                        }
 
-                    new Thread(() -> {
-                        try {
-                            byte[] data = new byte[100000000];
-                            InputStream in = sock.getInputStream();
-                            OutputStream out = sock.getOutputStream();
+                        byte[] data = new byte[100000000];
+                        InputStream in = sock.getInputStream();
+                        OutputStream out = sock.getOutputStream();
 
-                            int readSize = in.read(data);
-                            data = Arrays.copyOf(data, readSize);
-                            String text = new String(data, StandardCharsets.UTF_8);
-                            Matcher matcher1 = Pattern.compile("GET /\\?url=(.*) HTTP").matcher(text);
-                            Matcher matcher2 = Pattern.compile("HTTP/1\\.(\\d)").matcher(text);
-                            Matcher matcher3 = Pattern.compile("GET /video/(.*) HTTP").matcher(text);
+                        int readSize = in.read(data);
+                        data = Arrays.copyOf(data, readSize);
+                        String text = new String(data, StandardCharsets.UTF_8);
+                        Matcher matcher1 = Pattern.compile("GET /\\?url=(.*) HTTP").matcher(text);
+                        Matcher matcher2 = Pattern.compile("HTTP/1\\.(\\d)").matcher(text);
+                        Matcher matcher3 = Pattern.compile("GET /video/(.*) HTTP").matcher(text);
 
-                            //System.out.println(text);
+                        //System.out.println(text);
 
-                            String videoUri = "";
-                            String httpVersion = "1";
+                        String videoUri = "";
+                        String httpVersion = "1";
 
-                            String errorMessage = "";
+                        String errorMessage = "";
 
-                            if (matcher1.find()) {
-                                try {
-                                    videoUri = createVideo(matcher1.group(1), proxyAddress, proxyPort);
-                                } catch (Exception e) {
-                                    errorMessage = e.getMessage();
-                                }
+                        if (matcher1.find()) {
+                            try {
+                                videoUri = createVideo(matcher1.group(1), proxyAddress, proxyPort);
+                            } catch (Exception e) {
+                                errorMessage = e.getMessage();
+                            }
+                        }
+
+                        if (matcher2.find()) {
+                            httpVersion = matcher2.group(1);
+                        }
+
+
+                        byte[] httpText = null;
+
+                        //System.out.println("!");
+                        if (matcher3.find()) {
+                            //System.out.println("?!");
+                            //System.out.println("get video");
+                            File file = new File("./temp/" + matcher3.group(1));
+                            if (!file.exists()){
+                                httpText = ("HTTP/1."+httpVersion+" 404 Not Found\n" +
+                                        "Content-Type: text/plain\n" +
+                                        "\n404").getBytes(StandardCharsets.UTF_8);
                             }
 
-                            if (matcher2.find()) {
-                                httpVersion = matcher2.group(1);
+                            if (!file.isFile()){
+                                httpText = ("HTTP/1."+httpVersion+" 403 Forbidden\n" +
+                                        "Content-Type: text/plain\n" +
+                                        "\n403").getBytes(StandardCharsets.UTF_8);
                             }
 
-
-                            byte[] httpText;
-
-                            if (matcher3.find()) {
-                                //System.out.println("get video");
-                                httpText = getVideo(matcher3.group(1), "1." + httpVersion);
-
+                            if (httpText != null){
                                 out.write(httpText);
                                 out.flush();
                                 in.close();
                                 out.close();
                                 sock.close();
-
                                 return;
                             }
 
-                            if (videoUri.isEmpty() && errorMessage.isEmpty()) {
-                                //System.out.println("error");
-                                httpText = ("HTTP/1." + httpVersion + " 405 Method Not Allowed").getBytes(StandardCharsets.UTF_8);
-                            } else if (!errorMessage.isEmpty()) {
-                                //System.out.println("error2");
-                                httpText = ("HTTP/1." + httpVersion + " 403 Forbidden\r\n\r\n" + errorMessage).getBytes(StandardCharsets.UTF_8);
-                            } else {
-                                //System.out.println("create video");
-                                httpText = ("HTTP/1."+httpVersion+" 302 Found\n" +
-                                        "Date: "+new Date()+"\n" +
-                                        "Location: " + baseUrl + "video/" + videoUri + "\n\njump to "+baseUrl + "video/" + videoUri).replaceAll("\0","").getBytes(StandardCharsets.UTF_8);
+                            String ContentType = "application/octet-stream";
+                            if (file.getName().endsWith("m3u8")){
+                                ContentType = "application/vnd.apple.mpegurl";
                             }
+                            if (file.getName().endsWith("ts")){
+                                ContentType = "video/mp2t";
+                            }
+
+                            //System.out.println("!?");
+                            try {
+                                FileInputStream fileInputStream = new FileInputStream(file);
+                                out.write(("HTTP/1." + httpVersion + " 200 OK\r\n" +
+                                        "Date: " + new Date() + "\r\n" +
+                                        "Content-Type: "+ContentType+"\r\n" +
+                                        "\r\n").getBytes(StandardCharsets.UTF_8));
+                                out.write(fileInputStream.readAllBytes());
+                                out.flush();
+                                in.close();
+                                out.close();
+                                sock.close();
+                                return;
+
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+
+                        }
+
+                        //System.out.println("??");
+                        if (videoUri.isEmpty() && errorMessage.isEmpty()) {
+                            //System.out.println("error");
+                            httpText = ("HTTP/1." + httpVersion + " 405 Method Not Allowed").getBytes(StandardCharsets.UTF_8);
 
                             out.write(httpText);
                             out.flush();
@@ -181,15 +214,50 @@ public class Main {
                             out.close();
                             sock.close();
 
-                        } catch (Exception e){
-                            throw new RuntimeException(e);
+                            return;
                         }
-                    }).start();
-                }
-            } catch (Exception e){
-                e.printStackTrace();
+
+                        if (!errorMessage.isEmpty()) {
+                            //System.out.println("error2");
+                            httpText = ("HTTP/1." + httpVersion + " 403 Forbidden\r\n\r\n" + errorMessage).getBytes(StandardCharsets.UTF_8);
+
+                            out.write(httpText);
+                            out.flush();
+                            in.close();
+                            out.close();
+                            sock.close();
+
+                            return;
+                        }
+
+                        //System.out.println("create video");
+                        httpText = ("HTTP/1." + httpVersion + " 302 Found\n" +
+                                "Date: " + new Date() + "\n" +
+                                "Location: " + baseUrl + "video/" + videoUri + "\n\njump to " + baseUrl + "video/" + videoUri).replaceAll("\0", "").getBytes(StandardCharsets.UTF_8);
+
+                        out.write(httpText);
+                        out.flush();
+                        in.close();
+                        out.close();
+                        sock.close();
+
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
             }
-        }).start();
+
+        } catch (Exception e) {
+            e.fillInStackTrace();
+            try {
+                if (socket == null){
+                    return;
+                }
+                socket.close();
+            } catch (IOException ex) {
+                ex.fillInStackTrace();
+            }
+        }
 
 
     }
@@ -232,71 +300,55 @@ public class Main {
         String fileId = sb.substring(0, 16);
 
         if (new File("./temp/"+fileId).exists()){
-            return fileId+"/1.ts";
+            return fileId+"/main.m3u8";
         }
 
         new File("./temp/"+fileId).mkdir();
 
-        String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
+        String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 2 -r 1 ./temp/"+fileId+"/1.ts";
         //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
-        new Thread(()->{
-            try {
-                Runtime runtime = Runtime.getRuntime();
-                Process exec = runtime.exec(str1);
-                exec.waitFor();
-            } catch (InterruptedException | IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
-
-        return fileId+"/1.ts";
-
-    }
-
-    private static byte[] getVideo(String uri, String httpVersion){
-        //System.out.println("debug : uri = "+uri);
-
-        File file = new File("./temp/" + uri);
-        if (!file.exists()){
-            return ("HTTP/"+httpVersion+" 404 Not Found\r\n" +
-                    "Content-Type: text/plain\r\n" +
-                    "\r\n404").getBytes(StandardCharsets.UTF_8);
-        }
-
-        if (!file.isFile()){
-            return ("HTTP/"+httpVersion+" 403 Forbidden\r\n" +
-                    "Content-Type: text/plain\r\n" +
-                    "\r\n403").getBytes(StandardCharsets.UTF_8);
-        }
-
-        String ContentType = "application/octet-stream";
-        if (file.getName().endsWith("m3u8")){
-            ContentType = "application/vnd.apple.mpegurl";
-        }
-        if (file.getName().endsWith("ts")){
-            ContentType = "video/mp2t";
-        }
-
-
         try {
-            FileInputStream fileInputStream = new FileInputStream(file);
-            byte[] temp = ("HTTP/" + httpVersion + " 200 OK\r\n" +
-                    "Date: " + new Date() + "\r\n" +
-                    "Content-Type: "+ContentType+"\r\n" +
-                    "\r\n").getBytes(StandardCharsets.UTF_8);
-
-            byte[] read = fileInputStream.readAllBytes();
-
-            byte[] result = new byte[temp.length + read.length];
-            System.arraycopy(temp, 0, result, 0, temp.length);
-            System.arraycopy(read, 0, result, temp.length, read.length);
-
-            return result;
-
+            Runtime runtime = Runtime.getRuntime();
+            Process exec = runtime.exec(str1);
+            exec.waitFor();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.fillInStackTrace();
         }
+
+        FileInputStream inputStream = new FileInputStream("./temp/" + fileId + "/1.ts");
+        byte[] read = inputStream.readAllBytes();
+
+        for (int i = 2; i <= 5; i++){
+            FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/"+i+".ts");
+            ts_stream.write(read);
+            ts_stream.close();
+        }
+
+        String m3u8 = """
+                #EXTM3U
+                #EXT-X-VERSION:3
+                #EXT-X-TARGETDURATION:1
+                #EXT-X-MEDIA-SEQUENCE:0
+                #EXTINF:2.000000,
+                1.ts
+                #EXTINF:2.000000,
+                2.ts
+                #EXTINF:2.000000,
+                3.ts
+                #EXTINF:2.000000,
+                4.ts
+                #EXTINF:2.000000,
+                5.ts
+                #EXT-X-ENDLIST         
+                """;
+
+        FileOutputStream m3u8_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
+        m3u8_stream.write(m3u8.getBytes(StandardCharsets.UTF_8));
+        m3u8_stream.close();
+
+
+        return fileId+"/main.m3u8";
 
     }
 }
