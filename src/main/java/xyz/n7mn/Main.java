@@ -153,17 +153,18 @@ public class Main {
                         if (matcher3.find()) {
                             //System.out.println("?!");
                             //System.out.println("get video");
-                            File file = new File("./temp/" + matcher3.group(1));
+                            String[] split = matcher3.group(1).split("/");
+                            File file = new File("./temp/" + split[0]);
                             if (!file.exists()){
                                 httpText = ("HTTP/1."+httpVersion+" 404 Not Found\n" +
                                         "Content-Type: text/plain\n" +
                                         "\n404").getBytes(StandardCharsets.UTF_8);
                             }
 
-                            if (!file.isFile()){
-                                httpText = ("HTTP/1."+httpVersion+" 403 Forbidden\n" +
-                                        "Content-Type: text/plain\n" +
-                                        "\n403").getBytes(StandardCharsets.UTF_8);
+                            if (split[1].endsWith(".ts")){
+                                file = new File("./temp/" + split[0] + "/1.ts");
+                            } else {
+                                file = new File("./temp/" + split[0] + "/" + split[1]);
                             }
 
                             if (httpText != null){
@@ -204,7 +205,7 @@ public class Main {
                         }
 
                         //System.out.println("??");
-                        if (videoUri.isEmpty() && errorMessage.isEmpty()) {
+                        if (errorMessage != null && videoUri.isEmpty()) {
                             //System.out.println("error");
                             httpText = ("HTTP/1." + httpVersion + " 405 Method Not Allowed").getBytes(StandardCharsets.UTF_8);
 
@@ -299,35 +300,77 @@ public class Main {
         }
         String fileId = sb.substring(0, 16);
 
-        if (new File("./temp/"+fileId).exists()){
+        //if (new File("./temp/"+fileId).exists()){
+        //    return fileId+"/main.m3u8";
+        //}
+
+        if (!new File("./temp/"+fileId).exists()){
+            new File("./temp/"+fileId).mkdir();
+        }
+
+        if (!new File("./temp/"+fileId+"/1.ts").exists()){
+            String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
+
+            try {
+                Runtime runtime = Runtime.getRuntime();
+                Process exec = runtime.exec(str1);
+                exec.waitFor();
+            } catch (IOException e) {
+                e.fillInStackTrace();
+            }
+        }
+
+        if (new File("./temp/"+fileId+"/main.m3u8").exists()){
             return fileId+"/main.m3u8";
         }
 
-        new File("./temp/"+fileId).mkdir();
+        int[] i = {0};
 
-        String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 5 -r 1 ./temp/"+fileId+"/1.ts";
-        //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
-
-        try {
-            Runtime runtime = Runtime.getRuntime();
-            Process exec = runtime.exec(str1);
-            exec.waitFor();
-        } catch (IOException e) {
-            e.fillInStackTrace();
-        }
-
-        byte[] read = """
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                byte[] read = """
 #EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-TARGETDURATION:5
 #EXT-X-MEDIA-SEQUENCE:0
 #EXTINF:5.000000,
-1.ts
-#EXT-X-ENDLIST
-                """.getBytes(StandardCharsets.UTF_8);
-        FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
-        ts_stream.write(read);
-        ts_stream.close();
+#id#.ts
+                """.replaceAll("#id#", UUID.randomUUID().toString()).getBytes(StandardCharsets.UTF_8);
+
+                if (i[0] == 0){
+                    try {
+                        FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
+                        ts_stream.write(read);
+                        ts_stream.close();
+                    } catch (Exception e){
+                        e.fillInStackTrace();
+                        timer.cancel();
+                    }
+                } else {
+                    File file = new File("./temp/" + fileId + "/main.m3u8");
+                    try {
+                        FileWriter filewriter = new FileWriter(file, true);
+                        filewriter.write("#EXTINF:5.000000,\n" +
+                                "#id#.ts\n".replaceAll("#id#", UUID.randomUUID().toString()));
+                        filewriter.close();
+                    } catch (Exception e){
+                        e.fillInStackTrace();
+                        timer.cancel();
+                    }
+                }
+                i[0]++;
+
+                if (i[0] >= 28800){
+                    timer.cancel();
+                    new File("./temp/"+fileId+"/main.m3u8").delete();
+                    new File("./temp/"+fileId+"/1.ts").delete();
+                    new File("./temp/"+fileId).delete();
+                }
+            }
+        }, 0L, 3000L);
 
         return fileId+"/main.m3u8";
 
