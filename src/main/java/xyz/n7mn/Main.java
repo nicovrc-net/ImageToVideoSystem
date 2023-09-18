@@ -298,13 +298,27 @@ public class Main {
 
     private static String createVideo(String url, String ProxyIP, int ProxyPort) throws Exception {
 
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(url.getBytes(StandardCharsets.UTF_8));
+        byte[] cipher_byte = md.digest();
+        StringBuilder sb = new StringBuilder(2 * cipher_byte.length);
+        for(byte b: cipher_byte) {
+            sb.append(String.format("%02x", b&0xff) );
+        }
+        String fileId = sb.substring(0, 16);
+
+
+        if (new File("./temp/"+fileId+"/main.m3u8").exists()){
+            return fileId+"/main.m3u8";
+        }
+
         // 画像DL
         final OkHttpClient.Builder builder = new OkHttpClient.Builder();
         final OkHttpClient client = ProxyIP.isEmpty() ? new OkHttpClient() : builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ProxyIP, ProxyPort))).build();
 
         Request request_html = new Request.Builder()
                 .url(url)
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:101.0) Gecko/20100101 Firefox/101.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
                 .build();
         Response response = client.newCall(request_html).execute();
 
@@ -322,15 +336,6 @@ public class Main {
         if (response.code() != 200){
             throw new FileNotSupportException("HTTP Code : " + response.code());
         }
-
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        md.update(url.getBytes(StandardCharsets.UTF_8));
-        byte[] cipher_byte = md.digest();
-        StringBuilder sb = new StringBuilder(2 * cipher_byte.length);
-        for(byte b: cipher_byte) {
-            sb.append(String.format("%02x", b&0xff) );
-        }
-        String fileId = sb.substring(0, 16);
 
         //if (new File("./temp/"+fileId).exists()){
         //    return fileId+"/main.m3u8";
@@ -351,10 +356,6 @@ public class Main {
             } catch (IOException e) {
                 e.fillInStackTrace();
             }
-        }
-
-        if (new File("./temp/"+fileId+"/main.m3u8").exists()){
-            return fileId+"/main.m3u8";
         }
 
         int[] i = {0};
