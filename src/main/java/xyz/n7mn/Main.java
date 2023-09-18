@@ -4,9 +4,12 @@ import com.amihaiemil.eoyaml.Yaml;
 import com.amihaiemil.eoyaml.YamlMapping;
 import com.amihaiemil.eoyaml.YamlMappingBuilder;
 import com.amihaiemil.eoyaml.YamlSequence;
+import com.google.gson.Gson;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -25,6 +28,10 @@ public class Main {
     private static String baseUrl = "http://localhost:8888/";
     private static String ffmpegPass = "/bin/ffmpeg";
 
+    private static String RedisServer = "localhost";
+    private static int RedisPort = 6379;
+    private static String RedisPass = "";
+
     private static String[] proxyList = new String[0];
 
     public static void main(String[] args) {
@@ -34,6 +41,9 @@ public class Main {
                 YamlMapping ConfigYaml = Yaml.createYamlInput(new File("./config.yml")).readYamlMapping();
                 baseUrl = ConfigYaml.string("BaseURL");
                 ffmpegPass = ConfigYaml.string("ffmpegPass");
+                RedisServer = ConfigYaml.string("RedisServer");
+                RedisPort = ConfigYaml.integer("RedisPort");
+                RedisPass = ConfigYaml.string("RedisPass");
             } catch (Exception e){
                 e.printStackTrace();
                 return;
@@ -42,7 +52,10 @@ public class Main {
 
             YamlMappingBuilder add = Yaml.createYamlMappingBuilder()
                     .add("BaseURL", baseUrl)
-                    .add("ffmpegPass", "/bin/ffmpeg");
+                    .add("ffmpegPass", "/bin/ffmpeg")
+                    .add("RedisServer", "127.0.0.1")
+                    .add("RedisPort", "6379")
+                    .add("RedisPass", "xxx");
             YamlMapping build = add.build();
 
             try {
@@ -122,7 +135,7 @@ public class Main {
 
                         int readSize = in.read(data);
                         data = Arrays.copyOf(data, readSize);
-                        String text = new String(data, StandardCharsets.UTF_8);
+                        final String text = new String(data, StandardCharsets.UTF_8);
                         Matcher matcher1 = Pattern.compile("GET /\\?url=(.*) HTTP").matcher(text);
                         Matcher matcher2 = Pattern.compile("HTTP/1\\.(\\d)").matcher(text);
                         Matcher matcher3 = Pattern.compile("GET /video/(.*) HTTP").matcher(text);
@@ -131,12 +144,14 @@ public class Main {
 
                         String videoUri = "";
                         String httpVersion = "1";
+                        String requestUrl = "";
 
                         String errorMessage = "";
 
                         if (matcher1.find()) {
                             try {
-                                videoUri = createVideo(matcher1.group(1), proxyAddress, proxyPort);
+                                requestUrl = matcher1.group(1);
+                                videoUri = createVideo(requestUrl, proxyAddress, proxyPort);
                             } catch (Exception e) {
                                 errorMessage = e.getMessage();
                             }
@@ -203,6 +218,23 @@ public class Main {
                             }
 
                         }
+
+                        final String finalRequestUrl = requestUrl;
+                        final String finalErrorMessage = errorMessage;
+                        new Thread(()->{
+                            LogData logData = new LogData(UUID.randomUUID().toString() + "-" + new Date().getTime(), new Date().getTime(), text, finalRequestUrl, finalErrorMessage);
+
+                            JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                            Jedis jedis = jedisPool.getResource();
+                            if (!RedisPass.isEmpty()){
+                                jedis.auth(RedisPass);
+                            }
+
+                            jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                            jedis.close();
+                            jedisPool.close();
+                        }).start();
+
 
                         //System.out.println("??");
                         if (errorMessage != null && videoUri.isEmpty()) {
