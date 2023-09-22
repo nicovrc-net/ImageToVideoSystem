@@ -325,6 +325,7 @@ public class Main {
         String mineType = "";
         if (response.body() != null){
             mineType = Objects.requireNonNull(response.body().contentType()).type();
+            response.body().bytes();
         }
         response.close();
 
@@ -346,7 +347,14 @@ public class Main {
         }
 
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
-            String str1 = ffmpegPass+" -loop 1 -i "+url+" -c:v libx264 -c:a aac -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+
+            if (!new File("./out.mp3").exists()){
+                Runtime runtime = Runtime.getRuntime();
+                Process exec = runtime.exec(ffmpegPass+" -f lavfi -i anullsrc=r=44100:cl=mono -t 5 -aq 1 -c:a libmp3lame out.mp3");
+                exec.waitFor();
+            }
+
+            String str1 = ffmpegPass+" -loop 1 -i "+url+" -i ./out.mp3 -c:v libx264 -preset ultrafast -crf 16 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 15 ./temp/"+fileId+"/1.ts";
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
