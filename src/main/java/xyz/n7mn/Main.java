@@ -1,9 +1,6 @@
 package xyz.n7mn;
 
-import com.amihaiemil.eoyaml.Yaml;
-import com.amihaiemil.eoyaml.YamlMapping;
-import com.amihaiemil.eoyaml.YamlMappingBuilder;
-import com.amihaiemil.eoyaml.YamlSequence;
+import com.amihaiemil.eoyaml.*;
 import com.google.gson.Gson;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -24,6 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
+
 public class Main {
     private static String baseUrl = "http://localhost:8888/";
     private static String ffmpegPass = "/bin/ffmpeg";
@@ -33,6 +31,8 @@ public class Main {
     private static String RedisPass = "";
 
     private static String[] proxyList = new String[0];
+
+    private static String[] otherServer = new String[0];
 
     public static void main(String[] args) {
 
@@ -44,6 +44,16 @@ public class Main {
                 RedisServer = ConfigYaml.string("RedisServer");
                 RedisPort = ConfigYaml.integer("RedisPort");
                 RedisPass = ConfigYaml.string("RedisPass");
+
+                YamlSequence list = ConfigYaml.yamlSequence("OtherServer");
+                if (list != null){
+                    otherServer = new String[list.size()];
+                    for (int i = 0; i < list.size(); i++){
+                        otherServer[i] = list.string(i);
+                    }
+                }
+
+
             } catch (Exception e){
                 e.printStackTrace();
                 return;
@@ -55,7 +65,8 @@ public class Main {
                     .add("ffmpegPass", "/bin/ffmpeg")
                     .add("RedisServer", "127.0.0.1")
                     .add("RedisPort", "6379")
-                    .add("RedisPass", "xxx");
+                    .add("RedisPass", "xxx")
+                    .add("OtherServer", Yaml.createYamlSequenceBuilder().add("https://server1.example.com/").build());
             YamlMapping build = add.build();
 
             try {
@@ -163,6 +174,38 @@ public class Main {
                         if (matcher1.find()) {
                             try {
                                 requestUrl = matcher1.group(1);
+
+                                String s = checkVideo(requestUrl);
+                                if (s != null){
+                                    // すでに他の鯖にあったらその鯖へ誘導する
+                                    byte[] b = ("HTTP/1." + httpVersion + " 302 Found\n" +
+                                            "Date: " + new Date() + "\n" +
+                                            "Location: " + s + "\n\njump to " + s).replaceAll("\0", "").getBytes(StandardCharsets.UTF_8);
+
+                                    out.write(b);
+                                    out.flush();
+                                    out.close();
+                                    in.close();
+                                    sock.close();
+
+                                    String finalRequestUrl1 = requestUrl;
+                                    new Thread(()->{
+                                        LogData logData = new LogData(UUID.randomUUID().toString() + "-" + new Date().getTime(), new Date().getTime(), text, finalRequestUrl1, "");
+
+                                        JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                                        Jedis jedis = jedisPool.getResource();
+                                        if (!RedisPass.isEmpty()){
+                                            jedis.auth(RedisPass);
+                                        }
+
+                                        jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                        jedis.close();
+                                        jedisPool.close();
+                                    }).start();
+
+                                    return;
+                                }
+
                                 videoUri = createVideo(requestUrl, proxyAddress, proxyPort);
                             } catch (Exception e) {
                                 errorMessage = e.getMessage();
@@ -183,9 +226,18 @@ public class Main {
                             String[] split = matcher3.group(1).split("/");
                             File file = new File("./temp/" + split[0]);
                             if (!file.exists()){
-                                httpText = ("HTTP/1."+httpVersion+" 404 Not Found\n" +
-                                        "Content-Type: text/plain\n" +
-                                        "\n404").getBytes(StandardCharsets.UTF_8);
+                                //System.out.println(split[0]);
+                                String url = checkFile(split[0]);
+                                //System.out.println(url);
+                                if (url != null){
+                                    httpText = ("HTTP/1." + httpVersion + " 302 Found\n" +
+                                            "Date: " + new Date() + "\n" +
+                                            "Location: " + url + "\n\njump to " + url).replaceAll("\0", "").getBytes(StandardCharsets.UTF_8);
+                                } else {
+                                    httpText = ("HTTP/1."+httpVersion+" 404 Not Found\n" +
+                                            "Content-Type: text/plain\n" +
+                                            "\n404").getBytes(StandardCharsets.UTF_8);
+                                }
                             }
 
                             if (split[1].endsWith(".ts")){
@@ -305,6 +357,80 @@ public class Main {
         }
 
 
+    }
+
+    private static String checkFile(String fileId) {
+        try {
+            if (otherServer == null || otherServer.length == 0){
+                return null;
+            }
+
+            final OkHttpClient client = new OkHttpClient();
+            for (String str : otherServer){
+                //System.out.println(str + "video/"+fileId+"/main.m3u8");
+                Request request_html = new Request.Builder()
+                        .url(str + "video/"+fileId+"/main.m3u8")
+                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
+                        .build();
+                Response response = client.newCall(request_html).execute();
+
+                if (response.code() != 200){
+                    response.close();
+                    continue;
+                }
+
+                response.close();
+                return str+"video/"+fileId+"/main.m3u8";
+
+            }
+
+            return null;
+        } catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static String checkVideo(String requestUrl) {
+
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(requestUrl.getBytes(StandardCharsets.UTF_8));
+            byte[] cipher_byte = md.digest();
+            StringBuilder sb = new StringBuilder(2 * cipher_byte.length);
+            for(byte b: cipher_byte) {
+                sb.append(String.format("%02x", b&0xff) );
+            }
+            String fileId = sb.substring(0, 16);
+
+            if (otherServer == null || otherServer.length == 0){
+                return null;
+            }
+
+            final OkHttpClient client = new OkHttpClient();
+            for (String str : otherServer){
+                Request request_html = new Request.Builder()
+                        .url(str + "video/"+fileId+"/main.m3u8")
+                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
+                        .build();
+                Response response = client.newCall(request_html).execute();
+
+                if (response.code() != 200){
+                    response.close();
+                    continue;
+                }
+
+                response.close();
+                return str+"video/"+fileId+"/main.m3u8";
+
+            }
+
+        } catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
+
+        return null;
     }
 
 
