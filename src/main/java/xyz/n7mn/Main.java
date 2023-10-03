@@ -135,8 +135,7 @@ public class Main {
         try {
             socket = new ServerSocket(8888);
             while (true) {
-                Socket sock = socket.accept();
-                System.gc();
+                final Socket[] sock = {socket.accept()};
                 new Thread(() -> {
                     try {
 
@@ -153,16 +152,18 @@ public class Main {
                         }
 
                         byte[] data = new byte[100000000];
-                        InputStream in = sock.getInputStream();
-                        OutputStream out = sock.getOutputStream();
+                        InputStream in = sock[0].getInputStream();
+                        OutputStream out = sock[0].getOutputStream();
 
                         int readSize = in.read(data);
                         data = Arrays.copyOf(data, readSize);
                         final String text = new String(data, StandardCharsets.UTF_8);
+                        data = null;
                         Matcher matcher1 = Pattern.compile("GET /\\?url=(.*) HTTP").matcher(text);
                         Matcher matcher2 = Pattern.compile("HTTP/1\\.(\\d)").matcher(text);
                         Matcher matcher3 = Pattern.compile("GET /video/(.*) HTTP").matcher(text);
 
+                        System.gc();
                         //System.out.println(text);
 
                         String videoUri = "";
@@ -175,8 +176,9 @@ public class Main {
                             try {
                                 requestUrl = matcher1.group(1);
 
+                                //System.out.println(requestUrl);
                                 String s = checkVideo(requestUrl);
-                                if (s != null){
+                                if (s != null && !s.isEmpty()){
                                     // すでに他の鯖にあったらその鯖へ誘導する
                                     byte[] b = ("HTTP/1." + httpVersion + " 302 Found\n" +
                                             "Date: " + new Date() + "\n" +
@@ -186,7 +188,11 @@ public class Main {
                                     out.flush();
                                     out.close();
                                     in.close();
-                                    sock.close();
+                                    sock[0].close();
+                                    out = null;
+                                    in = null;
+                                    sock[0] = null;
+                                    System.gc();
 
                                     String finalRequestUrl1 = requestUrl;
                                     new Thread(()->{
@@ -206,7 +212,27 @@ public class Main {
                                     return;
                                 }
 
+                                //System.out.println("Not Found");
                                 videoUri = createVideo(requestUrl, proxyAddress, proxyPort);
+
+                                byte[] httpText = ("HTTP/1." + httpVersion + " 302 Found\n" +
+                                        "Date: " + new Date() + "\n" +
+                                        "Location: " + baseUrl + "video/" + videoUri + "\n\njump to " + baseUrl + "video/" + videoUri).replaceAll("\0", "").getBytes(StandardCharsets.UTF_8);
+
+
+                                out.write(httpText);
+                                out.flush();
+                                in.close();
+                                out.close();
+                                sock[0].close();
+
+                                out = null;
+                                in = null;
+                                sock[0] = null;
+                                httpText = null;
+                                System.gc();
+
+                                return;
                             } catch (Exception e) {
                                 errorMessage = e.getMessage();
                             }
@@ -220,14 +246,20 @@ public class Main {
                         byte[] httpText = null;
 
                         //System.out.println("!");
-                        if (matcher3.find()) {
+                        if (matcher3.find() && sock[0] != null) {
                             //System.out.println("?!");
                             //System.out.println("get video");
                             String[] split = matcher3.group(1).split("/");
                             File file = new File("./temp/" + split[0]);
+
                             if (!file.exists()){
+                                Matcher matcher = Pattern.compile("checkFile").matcher(text);
                                 //System.out.println(split[0]);
-                                String url = checkFile(split[0]);
+                                String url = null;
+                                if (!matcher.find()){
+                                    url = checkFile(split[0]);
+                                }
+
                                 //System.out.println(url);
                                 if (url != null){
                                     httpText = ("HTTP/1." + httpVersion + " 302 Found\n" +
@@ -238,7 +270,29 @@ public class Main {
                                             "Content-Type: text/plain\n" +
                                             "\n404").getBytes(StandardCharsets.UTF_8);
                                 }
+
+                                if (out != null){
+                                    out.write(httpText);
+                                    out.flush();
+                                    out.close();
+                                }
+                                if (in != null){
+                                    in.close();
+                                }
+                                sock[0].close();
+
+                                out = null;
+                                in = null;
+                                sock[0] = null;
+
+                                httpText = null;
+                                System.gc();
+
+                                return;
                             }
+
+                            file = null;
+                            System.gc();
 
                             if (split[1].endsWith(".ts")){
                                 file = new File("./temp/" + split[0] + "/1.ts");
@@ -246,12 +300,29 @@ public class Main {
                                 file = new File("./temp/" + split[0] + "/" + split[1]);
                             }
 
-                            if (httpText != null){
-                                out.write(httpText);
-                                out.flush();
-                                in.close();
-                                out.close();
-                                sock.close();
+                            if (!file.exists() && sock[0] != null) {
+
+                                httpText = ("HTTP/1."+httpVersion+" 404 Not Found\n" +
+                                        "Content-Type: text/plain\n" +
+                                        "\n404").getBytes(StandardCharsets.UTF_8);
+
+                                if (out != null){
+                                    out.write(httpText);
+                                    out.flush();
+                                    out.close();
+                                }
+                                if (in != null){
+
+                                    in.close();
+                                }
+                                sock[0].close();
+
+                                out = null;
+                                in = null;
+                                sock[0] = null;
+
+                                httpText = null;
+                                System.gc();
                                 return;
                             }
 
@@ -266,21 +337,49 @@ public class Main {
                             //System.out.println("!?");
                             try {
                                 FileInputStream fileInputStream = new FileInputStream(file);
-                                out.write(("HTTP/1." + httpVersion + " 200 OK\r\n" +
-                                        "Date: " + new Date() + "\r\n" +
-                                        "Content-Type: "+ContentType+"\r\n" +
-                                        "\r\n").getBytes(StandardCharsets.UTF_8));
-                                out.write(fileInputStream.readAllBytes());
-                                out.flush();
-                                in.close();
-                                out.close();
-                                sock.close();
+
+                                BufferedInputStream stream = new BufferedInputStream(new FileInputStream(file));
+                                DataInputStream inputStream = new DataInputStream(stream);
+
+                                if (out != null){
+                                    out.write(("HTTP/1." + httpVersion + " 200 OK\r\n" +
+                                            "Date: " + new Date() + "\r\n" +
+                                            "Content-Type: "+ContentType+"\r\n" +
+                                            "\r\n").getBytes(StandardCharsets.UTF_8));
+                                    //out.write(fileInputStream.readAllBytes());
+                                    byte t = inputStream.readByte();
+                                    while (true){
+                                        out.write(t);
+                                        try {
+                                            t = inputStream.readByte();
+                                        } catch (EOFException e){
+                                            break;
+                                        }
+                                    }
+                                    out.flush();
+                                    out.close();
+                                }
+                                inputStream.close();
+                                stream.close();
+
+
+                                if (in != null){
+                                    in.close();
+                                }
+                                sock[0].close();
+
+                                httpText = null;
+                                out = null;
+                                in = null;
+                                sock[0] = null;
+                                fileInputStream.close();
+                                fileInputStream = null;
+                                System.gc();
                                 return;
 
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
-
                         }
 
                         final String finalRequestUrl = requestUrl;
@@ -297,11 +396,17 @@ public class Main {
                             jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                             jedis.close();
                             jedisPool.close();
+
+                            logData = null;
+
+                            jedis = null;
+                            jedisPool = null;
+                            System.gc();
                         }).start();
 
 
                         //System.out.println("??");
-                        if (errorMessage != null && videoUri.isEmpty()) {
+                        if (errorMessage != null && videoUri.isEmpty() && sock[0] != null) {
                             //System.out.println("error");
                             httpText = ("HTTP/1." + httpVersion + " 405 Method Not Allowed").getBytes(StandardCharsets.UTF_8);
 
@@ -309,12 +414,17 @@ public class Main {
                             out.flush();
                             in.close();
                             out.close();
-                            sock.close();
+                            sock[0].close();
 
+                            out = null;
+                            in = null;
+                            sock[0] = null;
+                            httpText = null;
+                            System.gc();
                             return;
                         }
 
-                        if (!errorMessage.isEmpty()) {
+                        if (!errorMessage.isEmpty() && sock[0] != null) {
                             //System.out.println("error2");
                             httpText = ("HTTP/1." + httpVersion + " 403 Forbidden\r\n\r\n" + errorMessage).getBytes(StandardCharsets.UTF_8);
 
@@ -322,25 +432,23 @@ public class Main {
                             out.flush();
                             in.close();
                             out.close();
-                            sock.close();
+                            sock[0].close();
 
-                            return;
+                            out = null;
+                            in = null;
+                            sock[0] = null;
+                            httpText = null;
+                            System.gc();
                         }
 
                         //System.out.println("create video");
-                        httpText = ("HTTP/1." + httpVersion + " 302 Found\n" +
-                                "Date: " + new Date() + "\n" +
-                                "Location: " + baseUrl + "video/" + videoUri + "\n\njump to " + baseUrl + "video/" + videoUri).replaceAll("\0", "").getBytes(StandardCharsets.UTF_8);
-
-                        out.write(httpText);
-                        out.flush();
-                        in.close();
-                        out.close();
-                        sock.close();
 
                     } catch (Exception e) {
+                        sock[0] = null;
+                        System.gc();
                         throw new RuntimeException(e);
                     }
+
                 }).start();
             }
 
@@ -367,19 +475,25 @@ public class Main {
 
             final OkHttpClient client = new OkHttpClient();
             for (String str : otherServer){
-                //System.out.println(str + "video/"+fileId+"/main.m3u8");
-                Request request_html = new Request.Builder()
-                        .url(str + "video/"+fileId+"/main.m3u8")
-                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
-                        .build();
-                Response response = client.newCall(request_html).execute();
+                //System.out.println("Debug "+str + "video/"+fileId+"/main.m3u8");
+                try {
+                    Request request_html = new Request.Builder()
+                            .url(str + "video/"+fileId+"/main.m3u8")
+                            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/) checkFile/1.0")
+                            .build();
+                    Response response = client.newCall(request_html).execute();
 
-                if (response.code() != 200){
+                    if (response.code() != 200){
+                        response.close();
+                        continue;
+                    }
+
                     response.close();
+                } catch (Exception e){
                     continue;
                 }
 
-                response.close();
+
                 return str+"video/"+fileId+"/main.m3u8";
 
             }
@@ -404,32 +518,51 @@ public class Main {
             String fileId = sb.substring(0, 16);
 
             if (otherServer == null || otherServer.length == 0){
+                sb = null;
+                fileId = null;
+                md = null;
+                cipher_byte = null;
+                System.gc();
                 return null;
             }
 
-            final OkHttpClient client = new OkHttpClient();
+            OkHttpClient client = new OkHttpClient();
             for (String str : otherServer){
-                Request request_html = new Request.Builder()
-                        .url(str + "video/"+fileId+"/main.m3u8")
-                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
-                        .build();
-                Response response = client.newCall(request_html).execute();
+                Response response = null;
+                try {
+                    Request request_html = new Request.Builder()
+                            .url(str + "video/"+fileId+"/main.m3u8")
+                            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/) checkFile/1.0")
+                            .build();
+                    response = client.newCall(request_html).execute();
 
-                if (response.code() != 200){
+                    if (response.code() != 200){
+                        response.close();
+                        continue;
+                    }
+
                     response.close();
+                } catch (Exception e){
+                    if (response != null){
+                        response.close();
+                    }
                     continue;
                 }
 
-                response.close();
+                client = null;
+                response = null;
+                System.gc();
+
                 return str+"video/"+fileId+"/main.m3u8";
 
             }
 
         } catch (Exception e){
-            e.printStackTrace();
+            System.gc();
             return null;
         }
 
+        System.gc();
         return null;
     }
 
@@ -447,6 +580,10 @@ public class Main {
 
 
         if (new File("./temp/"+fileId+"/main.m3u8").exists()){
+            md = null;
+            cipher_byte = null;
+            sb = null;
+            System.gc();
             return fileId+"/main.m3u8";
         }
 
@@ -454,32 +591,52 @@ public class Main {
         final OkHttpClient.Builder builder = new OkHttpClient.Builder();
         final OkHttpClient client = ProxyIP.isEmpty() ? new OkHttpClient() : builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ProxyIP, ProxyPort))).build();
 
-        Request request_html = new Request.Builder()
-                .url(url)
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
-                .build();
-        Response response = client.newCall(request_html).execute();
-
         String mineType = "";
-        if (response.body() != null){
-            mineType = Objects.requireNonNull(response.body().contentType()).type();
-            byte[] bytes = response.body().bytes();
-            if (new File("./temp/temp-"+fileId).exists()){
-                new File("./temp/temp-"+fileId).delete();
+        Response response = null;
+        try {
+            Request request_html = new Request.Builder()
+                    .url(url)
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
+                    .build();
+            response = client.newCall(request_html).execute();
+
+
+            if (response.body() != null && response.code() == 200){
+                mineType = Objects.requireNonNull(response.body().contentType()).type();
+                byte[] bytes = response.body().bytes();
+                if (new File("./temp/temp-"+fileId).exists()){
+                    new File("./temp/temp-"+fileId).delete();
+                }
+                FileOutputStream stream = new FileOutputStream("./temp/temp-" + fileId);
+                stream.write(bytes);
+                stream.close();
+                stream = null;
+
+                System.gc();
             }
-            FileOutputStream stream = new FileOutputStream("./temp/temp-" + fileId);
-            stream.write(bytes);
-            stream.close();
+
+            if (response.code() != 200){
+                response.close();
+                System.gc();
+                throw new FileNotSupportException("HTTP Code : " + response.code());
+            }
+
+            response.close();
+        } catch (Exception e){
+            if (response != null){
+                response.close();
+            }
+
+            throw e;
         }
-        response.close();
+
+        System.gc();
 
         // 画像以外は拒否
         if (!mineType.toLowerCase(Locale.ROOT).startsWith("image")){
-            throw new FileNotSupportException("Not ImageType");
-        }
 
-        if (response.code() != 200){
-            throw new FileNotSupportException("HTTP Code : " + response.code());
+            System.gc();
+            throw new FileNotSupportException("Not ImageType");
         }
 
         //if (new File("./temp/"+fileId).exists()){
@@ -496,11 +653,18 @@ public class Main {
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
+
+                System.gc();
                 Runtime runtime = Runtime.getRuntime();
                 Process exec = runtime.exec(str1);
                 exec.waitFor();
 
+                runtime = null;
+                exec = null;
+
                 new File("./temp/temp-"+fileId).delete();
+
+                System.gc();
             } catch (IOException e) {
                 e.fillInStackTrace();
             }
@@ -526,9 +690,13 @@ public class Main {
                         FileOutputStream ts_stream = new FileOutputStream("./temp/" + fileId + "/main.m3u8");
                         ts_stream.write(read);
                         ts_stream.close();
+                        ts_stream = null;
+                        read = null;
+                        System.gc();
                     } catch (Exception e){
                         e.fillInStackTrace();
                         timer.cancel();
+                        System.gc();
                     }
                 } else {
                     File file = new File("./temp/" + fileId + "/main.m3u8");
@@ -537,9 +705,16 @@ public class Main {
                         filewriter.write("#EXTINF:5.000000,\n" +
                                 "#id#.ts\n".replaceAll("#id#", UUID.randomUUID().toString()));
                         filewriter.close();
+                        filewriter = null;
+                        file = null;
+
+                        read = null;
+
+                        System.gc();
                     } catch (Exception e){
                         e.fillInStackTrace();
                         timer.cancel();
+                        System.gc();
                     }
                 }
                 i[0]++;
@@ -549,7 +724,12 @@ public class Main {
                     new File("./temp/"+fileId+"/main.m3u8").delete();
                     new File("./temp/"+fileId+"/1.ts").delete();
                     new File("./temp/"+fileId).delete();
+                    read = null;
+                    System.gc();
                 }
+
+                read = null;
+                System.gc();
             }
         }, 0L, 3000L);
 
