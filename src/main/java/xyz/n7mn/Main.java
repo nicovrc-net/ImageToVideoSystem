@@ -338,29 +338,16 @@ public class Main {
                             try {
                                 FileInputStream fileInputStream = new FileInputStream(file);
 
-                                BufferedInputStream stream = new BufferedInputStream(new FileInputStream(file));
-                                DataInputStream inputStream = new DataInputStream(stream);
-
                                 if (out != null){
                                     out.write(("HTTP/1." + httpVersion + " 200 OK\r\n" +
                                             "Date: " + new Date() + "\r\n" +
                                             "Content-Type: "+ContentType+"\r\n" +
                                             "\r\n").getBytes(StandardCharsets.UTF_8));
-                                    //out.write(fileInputStream.readAllBytes());
-                                    byte t = inputStream.readByte();
-                                    while (true){
-                                        out.write(t);
-                                        try {
-                                            t = inputStream.readByte();
-                                        } catch (EOFException e){
-                                            break;
-                                        }
-                                    }
+                                    out.write(fileInputStream.readAllBytes());
                                     out.flush();
                                     out.close();
                                 }
-                                inputStream.close();
-                                stream.close();
+                                fileInputStream.close();
 
 
                                 if (in != null){
@@ -649,7 +636,7 @@ public class Main {
 
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
 
-            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -preset ultrafast -crf 16 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 15 ./temp/"+fileId+"/1.ts";
+            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -crf 45 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
