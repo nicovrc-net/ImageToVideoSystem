@@ -2,6 +2,7 @@ package xyz.n7mn;
 
 import com.amihaiemil.eoyaml.*;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -11,10 +12,7 @@ import redis.clients.jedis.JedisPool;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -68,7 +66,7 @@ public class Main {
                     .add("RedisServer", "127.0.0.1")
                     .add("RedisPort", "6379")
                     .add("RedisPass", "xxx")
-                    .add("OtherServer", Yaml.createYamlSequenceBuilder().add("https://server1.example.com/").build());
+                    .add("OtherServer", Yaml.createYamlSequenceBuilder().add("server1.example.com").build());
             YamlMapping build = add.build();
 
             try {
@@ -131,6 +129,9 @@ public class Main {
                 return;
             }
         }
+
+        // 他鯖からのファイル存在チェック用鯖
+        new FileCheckServer().start();
 
         // HTTP通信を受け取る
         ServerSocket socket = null;
@@ -462,29 +463,37 @@ public class Main {
                 return null;
             }
 
-            final OkHttpClient client = new OkHttpClient();
             for (String str : otherServer){
                 //System.out.println("Debug "+str + "video/"+fileId+"/main.m3u8");
+                String result;
                 try {
-                    Request request_html = new Request.Builder()
-                            .url(str + "video/"+fileId+"/main.m3u8")
-                            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/) checkFile/1.0")
-                            .build();
-                    Response response = client.newCall(request_html).execute();
+                    DatagramSocket udp_sock = new DatagramSocket();
+                    String s = "{\"check\":\"" + fileId + "\"}";
 
-                    if (response.code() != 200){
-                        response.close();
+                    DatagramPacket udp_packet = new DatagramPacket(s.getBytes(StandardCharsets.UTF_8), s.getBytes(StandardCharsets.UTF_8).length,new InetSocketAddress(str, 8888));
+                    udp_sock.send(udp_packet);
+
+                    byte[] temp = new byte[100000];
+                    DatagramPacket udp_packet2 = new DatagramPacket(temp, temp.length);
+                    udp_sock.receive(udp_packet2);
+                    JsonElement json = new Gson().fromJson(new String(Arrays.copyOf(udp_packet2.getData(), udp_packet2.getLength())), JsonElement.class);
+
+                    if (!json.getAsJsonObject().get("result").isJsonNull()){
+                        result = json.getAsJsonObject().get("result").getAsString();
+                    } else {
+                        result = "";
+                    }
+                    udp_sock.close();
+
+                    if (result.isEmpty() || result.equals("no found")){
                         continue;
                     }
 
-                    response.close();
                 } catch (Exception e){
                     continue;
                 }
 
-
-                return str+"video/"+fileId+"/main.m3u8";
-
+                return result;
             }
 
             return null;
@@ -515,34 +524,33 @@ public class Main {
                 return null;
             }
 
-            OkHttpClient client = new OkHttpClient();
+            String result;
             for (String str : otherServer){
-                Response response = null;
-                try {
-                    Request request_html = new Request.Builder()
-                            .url(str + "video/"+fileId+"/main.m3u8")
-                            .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/) checkFile/1.0")
-                            .build();
-                    response = client.newCall(request_html).execute();
+                DatagramSocket udp_sock = new DatagramSocket();
+                String s = "{\"check\":\"" + fileId + "\"}";
 
-                    if (response.code() != 200){
-                        response.close();
-                        continue;
-                    }
+                DatagramPacket udp_packet = new DatagramPacket(s.getBytes(StandardCharsets.UTF_8), s.getBytes(StandardCharsets.UTF_8).length,new InetSocketAddress(str, 8888));
+                udp_sock.send(udp_packet);
 
-                    response.close();
-                } catch (Exception e){
-                    if (response != null){
-                        response.close();
-                    }
+                byte[] temp = new byte[100000];
+                DatagramPacket udp_packet2 = new DatagramPacket(temp, temp.length);
+                udp_sock.receive(udp_packet2);
+                JsonElement json = new Gson().fromJson(new String(Arrays.copyOf(udp_packet2.getData(), udp_packet2.getLength())), JsonElement.class);
+
+                if (!json.getAsJsonObject().get("result").isJsonNull()){
+                    result = json.getAsJsonObject().get("result").getAsString();
+                } else {
+                    result = "";
+                }
+                udp_sock.close();
+
+                System.gc();
+
+                if (result.isEmpty() || result.equals("no found")){
                     continue;
                 }
 
-                client = null;
-                response = null;
-                System.gc();
-
-                return str+"video/"+fileId+"/main.m3u8";
+                return result;
 
             }
 
@@ -672,7 +680,7 @@ public class Main {
                 str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=-1:1920 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
             }
 
-            System.out.println(str1);
+            //System.out.println(str1);
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
