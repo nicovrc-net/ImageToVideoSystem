@@ -8,6 +8,8 @@ import okhttp3.Response;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -661,18 +663,26 @@ public class Main {
 
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
 
-            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -crf 45 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+
+            BufferedImage image = ImageIO.read(new File("./temp/temp-" + fileId));
+            if (image.getHeight() >= 1920 && image.getWidth() <= image.getHeight()){
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=1920:-1 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            } else if (image.getWidth() >= 1920){
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=-1:1920 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            }
+
+            System.out.println(str1);
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
-
-                System.gc();
                 Runtime runtime = Runtime.getRuntime();
                 Process exec = runtime.exec(str1);
                 exec.waitFor();
 
                 runtime = null;
                 exec = null;
+                image = null;
 
                 new File("./temp/temp-"+fileId).delete();
 
