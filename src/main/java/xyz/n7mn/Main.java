@@ -580,13 +580,38 @@ public class Main {
 
         String mineType = "";
         Response response = null;
+/*
+        Matcher imgur_url = Pattern.compile("imgur\\.com/a/(.*)").matcher(url);
+        if (imgur_url.find()){
+
+            String htmlText = "";
+            try {
+                Request request_html = new Request.Builder()
+                        .url(url)
+                        .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
+                        .build();
+                response = client.newCall(request_html).execute();
+                htmlText = response.body().string();
+                response.close();
+
+            } catch (Exception e){
+                throw e;
+            }
+
+            //System.out.println(htmlText);
+
+            Matcher imgurl = Pattern.compile("<meta name=\"twitter:image\" data-react-helmet=\"true\" content=\"(.*)\">").matcher(htmlText);
+            if (imgurl.find()){
+                url = imgurl.group(1);
+            }
+        }*/
+
         try {
             Request request_html = new Request.Builder()
                     .url(url)
                     .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/113.0 ImageToVideoSystem/1.0 (https://nicovrc.net/)")
                     .build();
             response = client.newCall(request_html).execute();
-
 
             if (response.body() != null && response.code() == 200){
                 mineType = Objects.requireNonNull(response.body().contentType()).type();
