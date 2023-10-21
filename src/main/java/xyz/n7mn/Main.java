@@ -429,9 +429,24 @@ public class Main {
                             sock[0] = null;
                             httpText = null;
                             System.gc();
+
+                            return;
                         }
 
                         //System.out.println("create video");
+                        httpText = ("HTTP/1." + httpVersion + " 400 Bad Request\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+
+                        out.write(httpText);
+                        out.flush();
+                        in.close();
+                        out.close();
+                        sock[0].close();
+
+                        out = null;
+                        in = null;
+                        sock[0] = null;
+                        httpText = null;
+                        System.gc();
 
                     } catch (Exception e) {
                         sock[0] = null;
@@ -671,7 +686,7 @@ public class Main {
 
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
 
-            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(iw/2\\)*2:trunc\\(ih/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
 
             BufferedImage image = ImageIO.read(new File("./temp/temp-" + fileId));
             if (image.getHeight() >= 1920 && image.getWidth() <= image.getHeight()){
