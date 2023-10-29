@@ -490,6 +490,7 @@ public class Main {
 
                     byte[] temp = new byte[100000];
                     DatagramPacket udp_packet2 = new DatagramPacket(temp, temp.length);
+                    udp_sock.setSoTimeout(1000);
                     udp_sock.receive(udp_packet2);
                     JsonElement json = new Gson().fromJson(new String(Arrays.copyOf(udp_packet2.getData(), udp_packet2.getLength())), JsonElement.class);
 
@@ -549,6 +550,7 @@ public class Main {
 
                 byte[] temp = new byte[100000];
                 DatagramPacket udp_packet2 = new DatagramPacket(temp, temp.length);
+                udp_sock.setSoTimeout(1000);
                 udp_sock.receive(udp_packet2);
                 JsonElement json = new Gson().fromJson(new String(Arrays.copyOf(udp_packet2.getData(), udp_packet2.getLength())), JsonElement.class);
 
