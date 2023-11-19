@@ -176,6 +176,7 @@ public class Main {
                         String errorMessage = "";
 
                         if (matcher1.find()) {
+                            //System.out.println("OK 1");
                             try {
                                 requestUrl = matcher1.group(1);
 
@@ -214,6 +215,7 @@ public class Main {
 
                                     return;
                                 }
+                                //System.out.println("OK 2");
 
                                 //System.out.println("Not Found");
                                 videoUri = createVideo(requestUrl, proxyAddress, proxyPort);
@@ -586,6 +588,7 @@ public class Main {
 
     private static String createVideo(String url, String ProxyIP, int ProxyPort) throws Exception {
 
+        System.out.println("OK 3");
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.update(url.getBytes(StandardCharsets.UTF_8));
         byte[] cipher_byte = md.digest();
@@ -603,6 +606,7 @@ public class Main {
             System.gc();
             return fileId+"/main.m3u8";
         }
+//        System.out.println("OK 4");
 
         // 画像DL
         final OkHttpClient.Builder builder = new OkHttpClient.Builder();
@@ -669,8 +673,10 @@ public class Main {
                 response.close();
             }
 
+//            e.printStackTrace();
             throw e;
         }
+//        System.out.println("OK 5");
 
         System.gc();
 
@@ -689,18 +695,20 @@ public class Main {
             new File("./temp/"+fileId).mkdir();
         }
 
+//        System.out.println("OK 6");
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
+//            System.out.println("OK 7");
 
             String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(iw/2\\)*2:trunc\\(ih/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
 
             BufferedImage image = ImageIO.read(new File("./temp/temp-" + fileId));
             if (image.getHeight() >= 1920 && image.getWidth() <= image.getHeight()){
-                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=1920:-1 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(1920/2\\)*2:trunc\\(-1/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
             } else if (image.getWidth() >= 1920){
-                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=-1:1920 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(-1/2\\)*2:trunc\\(1920/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
             }
 
-            //System.out.println(str1);
+            System.out.println(str1);
             //String str1 = "ffmpeg -loop 1 -i "+url+" -c:v libx264 -t 1 -r 1 ./temp/"+fileId+"/1.ts";
 
             try {
