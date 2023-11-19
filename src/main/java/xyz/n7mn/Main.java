@@ -340,13 +340,16 @@ public class Main {
                             //System.out.println("!?");
                             try {
                                 FileInputStream fileInputStream = new FileInputStream(file);
+                                //System.out.println(fileInputStream.readAllBytes().length);
+                                byte[] read = fileInputStream.readAllBytes();
 
                                 if (out != null){
                                     out.write(("HTTP/1." + httpVersion + " 200 OK\r\n" +
                                             "Date: " + new Date() + "\r\n" +
                                             "Content-Type: "+ContentType+"\r\n" +
+                                            "Content-Length: "+read.length+"\r\n" +
                                             "\r\n").getBytes(StandardCharsets.UTF_8));
-                                    out.write(fileInputStream.readAllBytes());
+                                    out.write(read);
                                     out.flush();
                                     out.close();
                                 }
@@ -688,13 +691,13 @@ public class Main {
 
         if (!new File("./temp/"+fileId+"/1.ts").exists()){
 
-            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(iw/2\\)*2:trunc\\(ih/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+            String str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=trunc\\(iw/2\\)*2:trunc\\(ih/2\\)*2 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
 
             BufferedImage image = ImageIO.read(new File("./temp/temp-" + fileId));
             if (image.getHeight() >= 1920 && image.getWidth() <= image.getHeight()){
-                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=1920:-1 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=1920:-1 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
             } else if (image.getWidth() >= 1920){
-                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=-1:1920 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 30 ./temp/"+fileId+"/1.ts";
+                str1 = ffmpegPass+" -loop 1 -i ./temp/temp-"+fileId+" -i ./out.mp3 -c:v libx264 -vf transpose=0 -vf scale=-1:1920 -pix_fmt yuv420p -c:a copy -map 0:v:0 -map 1:a:0 -t 5 -r 60 ./temp/"+fileId+"/1.ts";
             }
 
             //System.out.println(str1);
@@ -704,6 +707,8 @@ public class Main {
                 Runtime runtime = Runtime.getRuntime();
                 Process exec = runtime.exec(str1);
                 exec.waitFor();
+
+                //System.out.println(new String(exec.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
 
                 runtime = null;
                 exec = null;
