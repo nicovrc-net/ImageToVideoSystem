@@ -96,7 +96,7 @@ public class HTTPServer extends Thread {
                         jedis.auth(RedisPass);
                     }
 
-                    jedis.keys("nico-img2:ExecuteLog:*").forEach((id)->{
+                    jedis.keys("nico-img2:CacheLog:*").forEach((id)->{
                         VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
                         long l = new Date().getTime() - videoData.getVideoCreateTime();
 
@@ -185,7 +185,7 @@ public class HTTPServer extends Thread {
 
                             if (URIText.startsWith("/?get_data")){
                                 // 情報
-                                out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: text/json; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
+                                out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: application/json; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                 if (isGET){
                                     out.write(new Gson().toJson(new OutputJson(Constant.Version, DataList.size())).getBytes(StandardCharsets.UTF_8));
                                 }
