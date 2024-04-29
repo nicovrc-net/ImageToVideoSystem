@@ -129,7 +129,7 @@ public class HTTPServer extends Thread {
                     jedisPool.close();
                 }).start();
             }
-        }, 0L, 60000L);
+        }, 0L, 600000L);
 
     }
 
@@ -280,6 +280,10 @@ public class HTTPServer extends Thread {
                                             sock.close();
                                         } catch (IOException e) {
                                             throw new RuntimeException(e);
+                                        }
+
+                                        if (VideoData.getVideoHost().equals(Hostname)){
+                                            DataList.put(Hostname, VideoData);
                                         }
 
                                         new Thread(()->{
@@ -498,6 +502,11 @@ public class HTTPServer extends Thread {
                                         jedis.auth(RedisPass);
                                     }
                                     VideoData = new Gson().fromJson(jedis.get("nico-img:CacheLog:"+VideoID), net.nicovrc.dev.VideoData.class);
+                                    if (VideoData != null){
+                                        if (VideoData.getVideoHost().equals(Hostname)){
+                                            DataList.put(Hostname, VideoData);
+                                        }
+                                    }
                                     jedis.close();
                                     jedisPool.close();
                                 }
