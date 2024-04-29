@@ -455,9 +455,19 @@ public class HTTPServer extends Thread {
                             matcher = VideoIDMatch.matcher(httpRequest);
                             if (matcher.find()){
                                 final String VideoID = matcher.group(2)+"_"+matcher.group(3);
-                                final VideoData VideoData = DataList.get(VideoID) != null ? DataList.get(VideoID) : getRedisData(VideoID);
+                                VideoData VideoData = DataList.get(VideoID) != null ? DataList.get(VideoID) : getRedisData(VideoID);
 
                                 //System.out.println(VideoID);
+                                if (VideoData == null){
+                                    JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                                    Jedis jedis = jedisPool.getResource();
+                                    if (!RedisPass.isEmpty()){
+                                        jedis.auth(RedisPass);
+                                    }
+                                    VideoData = new Gson().fromJson(jedis.get("nico-img:CacheLog:"+VideoID), net.nicovrc.dev.VideoData.class);
+                                    jedis.close();
+                                    jedisPool.close();
+                                }
 
                                 if (VideoData == null){
                                     out.write(("HTTP/"+httpVersion+" 404 Not Found\nContent-Type: text/plain; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
@@ -475,7 +485,7 @@ public class HTTPServer extends Thread {
                                 //System.out.println("VideoData Found");
 
                                 if (URIText.endsWith("main.m3u8")){
-                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : "https://"+Hostname).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
+                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : "https://"+VideoData.getVideoHost()).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
 
                                     out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: application/vnd.apple.mpegurl; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                     if (isGET){
