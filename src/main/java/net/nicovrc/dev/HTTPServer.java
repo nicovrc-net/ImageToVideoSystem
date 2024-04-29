@@ -184,7 +184,17 @@ public class HTTPServer extends Thread {
                             //System.out.println(URIText);
 
                             if (URIText.startsWith("/?get_data")){
-                                // todo なんか情報出す
+                                // 情報
+                                out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: text/json; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
+                                if (isGET){
+                                    out.write(new Gson().toJson(new OutputJson(Constant.Version, DataList.size())).getBytes(StandardCharsets.UTF_8));
+                                }
+                                out.flush();
+
+                                in.close();
+                                out.close();
+                                sock.close();
+                                return;
                             }
 
                             if (URIText.startsWith("/?url=")){
