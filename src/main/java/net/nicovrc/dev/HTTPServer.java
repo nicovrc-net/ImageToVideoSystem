@@ -51,16 +51,34 @@ public class HTTPServer extends Thread {
             }
         }
 
-        ProxyIP = "";
-        ProxyPort = 3128;
+        if (!new File("./config.yml").exists()){
+            String text = "RedisServer: ''\n" +
+                    "RedisPort: 6379\n" +
+                    "RedisPass: ''\n" +
+                    "\n" +
+                    "Hostname: 'i2v.nicovrc.net'\n" +
+                    "\n" +
+                    "ProxyServer: ''\n" +
+                    "ProxyPort: 3128";
+
+            FileWriter file = new FileWriter("./config.yml");
+            PrintWriter pw = new PrintWriter(new BufferedWriter(file));
+            pw.print(text);
+            pw.close();
+            file.close();
+        }
 
         YamlMapping input = Yaml.createYamlInput(new File("./config.yml")).readYamlMapping();
+
+        ProxyIP = input.string("ProxyServer");;
+        ProxyPort = input.integer("ProxyPort");;
+
 
         RedisServer = input.string("RedisServer");
         RedisPort = input.integer("RedisPort");
         RedisPass = input.string("RedisPass");
 
-        Hostname = "i2v.nicovrc.net";
+        Hostname = input.string("Hostname");
 
         Timer timer = new Timer();
         timer.scheduleAtFixedRate(new TimerTask() {
