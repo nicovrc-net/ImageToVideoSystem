@@ -99,7 +99,7 @@ public class HTTPServer extends Thread {
                                 jedis.auth(RedisPass);
                             }
 
-                            jedis.del("nico-img2:ExecuteLog:"+id);
+                            jedis.del("nico-img:ExecuteLog:"+id);
                             jedis.close();
                             jedisPool.close();
 
@@ -114,7 +114,7 @@ public class HTTPServer extends Thread {
                         jedis.auth(RedisPass);
                     }
 
-                    jedis.keys("nico-img2:CacheLog:*").forEach((id)->{
+                    jedis.keys("nico-img:CacheLog:*").forEach((id)->{
                         VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
                         long l = new Date().getTime() - videoData.getVideoCreateTime();
 
@@ -122,7 +122,7 @@ public class HTTPServer extends Thread {
                             if (videoData.getVideoHost().equals(Hostname)){
                                 new File("./temp/"+videoData.getVideoID()+".ts").delete();
                             }
-                            jedis.del("nico-img2:ExecuteLog:"+id);
+                            jedis.del("nico-img:ExecuteLog:"+id);
                         }
                     });
                     jedis.close();
@@ -253,7 +253,7 @@ public class HTTPServer extends Thread {
                                             jedis.auth(RedisPass);
                                         }
 
-                                        jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                        jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                         jedis.close();
                                         jedisPool.close();
                                     }).start();
@@ -296,7 +296,7 @@ public class HTTPServer extends Thread {
                                                 jedis.auth(RedisPass);
                                             }
 
-                                            jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                            jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                             jedis.close();
                                             jedisPool.close();
                                         }).start();
@@ -348,7 +348,7 @@ public class HTTPServer extends Thread {
                                             jedis.auth(RedisPass);
                                         }
 
-                                        jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                        jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                         jedis.close();
                                         jedisPool.close();
                                     }).start();
@@ -434,8 +434,8 @@ public class HTTPServer extends Thread {
                                         jedis.auth(RedisPass);
                                     }
 
-                                    jedis.set("nico-img2:CacheLog:"+videoData.getVideoID(), new Gson().toJson(videoData));
-                                    jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                    jedis.set("nico-img:CacheLog:"+videoData.getVideoID(), new Gson().toJson(videoData));
+                                    jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                     jedis.close();
                                     jedisPool.close();
                                 }).start();
@@ -556,7 +556,7 @@ public class HTTPServer extends Thread {
             jedis.auth(RedisPass);
         }
 
-        String s1 = jedis.get("nico-img2:CacheLog" + VideoID);
+        String s1 = jedis.get("nico-img:CacheLog" + VideoID);
         if (s1 != null){
             VideoData videoData = new Gson().fromJson(s1, VideoData.class);
             jedis.close();
