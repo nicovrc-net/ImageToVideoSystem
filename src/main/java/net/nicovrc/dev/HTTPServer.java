@@ -10,6 +10,7 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import javax.imageio.ImageIO;
+import javax.xml.crypto.Data;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -60,6 +61,33 @@ public class HTTPServer extends Thread {
         RedisPass = input.string("RedisPass");
 
         Hostname = "i2v.nicovrc.net";
+
+        Timer timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                HashMap<String, VideoData> temp = new HashMap<>(DataList);
+                temp.forEach((id, videodata)->{
+                    long l = new Date().getTime() - videodata.getVideoCreateTime();
+                    if (l >= 864000000L){
+                        if (videodata.getVideoHost().equals(Hostname)){
+                            new File("./temp/"+videodata.getVideoID()+".ts").delete();
+                        }
+                        DataList.remove(id);
+                        JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                        Jedis jedis = jedisPool.getResource();
+                        if (!RedisPass.isEmpty()){
+                            jedis.auth(RedisPass);
+                        }
+
+                        jedis.del("nico-img2:ExecuteLog:"+id);
+                        jedis.close();
+                        jedisPool.close();
+
+                    }
+                });
+            }
+        }, 0L, 60000L);
 
     }
 
