@@ -1,5 +1,7 @@
 package net.nicovrc.dev;
 
+import com.amihaiemil.eoyaml.Yaml;
+import com.amihaiemil.eoyaml.YamlMapping;
 import com.google.gson.Gson;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -51,9 +53,11 @@ public class HTTPServer extends Thread {
         ProxyIP = "";
         ProxyPort = 3128;
 
-        RedisServer = "";
-        RedisPort = 6379;
-        RedisPass = "";
+        YamlMapping input = Yaml.createYamlInput(new File("./config.yml")).readYamlMapping();
+
+        RedisServer = input.string("RedisServer");
+        RedisPort = input.integer("RedisPort");
+        RedisPass = input.string("RedisPass");
 
         Hostname = "i2v.nicovrc.net";
 
@@ -169,7 +173,7 @@ public class HTTPServer extends Thread {
                                             jedis.auth(RedisPass);
                                         }
 
-                                        jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                        jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                         jedis.close();
                                         jedisPool.close();
                                     }).start();
@@ -212,7 +216,7 @@ public class HTTPServer extends Thread {
                                                 jedis.auth(RedisPass);
                                             }
 
-                                            jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                            jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                             jedis.close();
                                             jedisPool.close();
                                         }).start();
@@ -264,7 +268,7 @@ public class HTTPServer extends Thread {
                                             jedis.auth(RedisPass);
                                         }
 
-                                        jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                        jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                         jedis.close();
                                         jedisPool.close();
                                     }).start();
@@ -336,6 +340,7 @@ public class HTTPServer extends Thread {
                                 DataList.put(fileId, videoData);
 
                                 new Thread(()->{
+
                                     LogData logData = new LogData();
                                     logData.setLogId(UUID.randomUUID().toString() + "-" + new Date().getTime());
                                     logData.setTime(new Date().getTime());
@@ -349,7 +354,8 @@ public class HTTPServer extends Thread {
                                         jedis.auth(RedisPass);
                                     }
 
-                                    jedis.set("nico-img:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
+                                    jedis.set("nico-img2:CacheLog:"+videoData.getVideoID(), new Gson().toJson(videoData));
+                                    jedis.set("nico-img2:ExecuteLog:"+logData.getLogId(), new Gson().toJson(logData));
                                     jedis.close();
                                     jedisPool.close();
                                 }).start();
@@ -389,7 +395,7 @@ public class HTTPServer extends Thread {
                                 //System.out.println("VideoData Found");
 
                                 if (URIText.endsWith("main.m3u8")){
-                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : Hostname).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
+                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : "https://"+Hostname).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
 
                                     out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: application/vnd.apple.mpegurl; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                     if (isGET){
@@ -464,7 +470,19 @@ public class HTTPServer extends Thread {
     }
 
     private VideoData getRedisData(String VideoID){
-        // todo
+        JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+        Jedis jedis = jedisPool.getResource();
+        if (!RedisPass.isEmpty()){
+            jedis.auth(RedisPass);
+        }
+
+        String s1 = jedis.get("nico-img2:CacheLog" + VideoID);
+        if (s1 != null){
+            VideoData videoData = new Gson().fromJson(s1, VideoData.class);
+            jedis.close();
+            jedisPool.close();
+            return videoData;
+        }
         return null;
     }
 }
