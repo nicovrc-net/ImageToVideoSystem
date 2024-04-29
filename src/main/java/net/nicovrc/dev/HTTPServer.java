@@ -323,7 +323,7 @@ public class HTTPServer extends Thread {
                                         "#EXT-X-TARGETDURATION:5\n" +
                                         "#EXT-X-MEDIA-SEQUENCE:0\n" +
                                         "#EXTINF:5.000000,\n" +
-                                        "/"+fileId+"/start.ts\n" +
+                                        "#hostname#/"+fileId+"/start.ts\n" +
                                         "#EXTINF:5.000000,\n" +
                                         "#hostname#/"+fileId+"/#id#.ts";
 
