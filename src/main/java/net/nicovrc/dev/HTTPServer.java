@@ -302,6 +302,39 @@ public class HTTPServer extends Thread {
                                         }).start();
                                     }
                                 });
+
+                                if (!isFound[0]){
+                                    JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                                    Jedis jedis = jedisPool.getResource();
+                                    if (!RedisPass.isEmpty()){
+                                        jedis.auth(RedisPass);
+                                    }
+
+                                    jedis.keys("nico-img:CacheLog:*").forEach((id)-> {
+                                        if (isFound[0]){
+                                            return;
+                                        }
+
+                                        VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
+                                        if (videoData.getImageURL().equals(url)){
+                                            isFound[0] = true;
+                                            try {
+                                                out.write(("HTTP/" + httpVersion + " 302 Found\nDate: " + new Date() + "\nLocation: /" + videoData.getVideoID() + "/main.m3u8" + "\n\n").getBytes(StandardCharsets.UTF_8));
+                                                if (isGET){
+                                                    out.write(("jump to /"+videoData.getVideoID()+"/main.m3u8").getBytes(StandardCharsets.UTF_8));
+                                                }
+                                                out.flush();
+                                                in.close();
+                                                out.close();
+                                                sock.close();
+                                            } catch (IOException e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        }
+                                    });
+
+                                }
+
                                 if (isFound[0]){
                                     return;
                                 }
