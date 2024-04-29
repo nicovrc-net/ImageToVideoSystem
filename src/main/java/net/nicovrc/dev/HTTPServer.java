@@ -66,26 +66,50 @@ public class HTTPServer extends Thread {
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                HashMap<String, VideoData> temp = new HashMap<>(DataList);
-                temp.forEach((id, videodata)->{
-                    long l = new Date().getTime() - videodata.getVideoCreateTime();
-                    if (l >= 864000000L){
-                        if (videodata.getVideoHost().equals(Hostname)){
-                            new File("./temp/"+videodata.getVideoID()+".ts").delete();
-                        }
-                        DataList.remove(id);
-                        JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
-                        Jedis jedis = jedisPool.getResource();
-                        if (!RedisPass.isEmpty()){
-                            jedis.auth(RedisPass);
-                        }
+                new Thread(()->{
+                    HashMap<String, VideoData> temp = new HashMap<>(DataList);
+                    temp.forEach((id, videodata)->{
+                        long l = new Date().getTime() - videodata.getVideoCreateTime();
+                        if (l >= 864000000L){
+                            if (videodata.getVideoHost().equals(Hostname)){
+                                new File("./temp/"+videodata.getVideoID()+".ts").delete();
+                            }
+                            DataList.remove(id);
+                            JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                            Jedis jedis = jedisPool.getResource();
+                            if (!RedisPass.isEmpty()){
+                                jedis.auth(RedisPass);
+                            }
 
-                        jedis.del("nico-img2:ExecuteLog:"+id);
-                        jedis.close();
-                        jedisPool.close();
+                            jedis.del("nico-img2:ExecuteLog:"+id);
+                            jedis.close();
+                            jedisPool.close();
 
+                        }
+                    });
+                }).start();
+
+                new Thread(()->{
+                    JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                    Jedis jedis = jedisPool.getResource();
+                    if (!RedisPass.isEmpty()){
+                        jedis.auth(RedisPass);
                     }
-                });
+
+                    jedis.keys("nico-img2:ExecuteLog:*").forEach((id)->{
+                        VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
+                        long l = new Date().getTime() - videoData.getVideoCreateTime();
+
+                        if (l >= 864000000L){
+                            if (videoData.getVideoHost().equals(Hostname)){
+                                new File("./temp/"+videoData.getVideoID()+".ts").delete();
+                            }
+                            jedis.del("nico-img2:ExecuteLog:"+id);
+                        }
+                    });
+                    jedis.close();
+                    jedisPool.close();
+                }).start();
             }
         }, 0L, 60000L);
 
