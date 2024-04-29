@@ -323,11 +323,9 @@ public class HTTPServer extends Thread {
                                         "#EXT-X-TARGETDURATION:5\n" +
                                         "#EXT-X-MEDIA-SEQUENCE:0\n" +
                                         "#EXTINF:5.000000,\n" +
-                                        "/"+fileId+"/#id#.ts\n" +
+                                        "/"+fileId+"/start.ts\n" +
                                         "#EXTINF:5.000000,\n" +
-                                        "/"+fileId+"/#id#.ts\n" +
-                                        "#EXTINF:5.000000,\n" +
-                                        "/"+fileId+"/#id#.ts";
+                                        "#hostname#/"+fileId+"/#id#.ts";
 
                                 VideoData videoData = new VideoData();
                                 videoData.setVideoID(fileId);
@@ -391,7 +389,7 @@ public class HTTPServer extends Thread {
                                 //System.out.println("VideoData Found");
 
                                 if (URIText.endsWith("main.m3u8")){
-                                    final String t = VideoData.getM3u8().replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
+                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : Hostname).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
 
                                     out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: application/vnd.apple.mpegurl; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                     if (isGET){
