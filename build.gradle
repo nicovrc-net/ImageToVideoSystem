@@ -15,7 +15,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
 
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    implementation 'com.amihaiemil.web:eo-yaml:7.2.0'
+    implementation 'com.amihaiemil.web:eo-yaml:8.0.1'
     implementation 'redis.clients:jedis:5.2.0-beta1'
 }
 
