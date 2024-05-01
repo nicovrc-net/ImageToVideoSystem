@@ -88,7 +88,8 @@ public class HTTPServer extends Thread {
                     HashMap<String, VideoData> temp = new HashMap<>(DataList);
                     temp.forEach((id, videodata)->{
                         long l = new Date().getTime() - videodata.getVideoCreateTime();
-                        if (l >= 864000000L){
+                        //System.out.println(l);
+                        if (l >= 86400000L){
                             if (videodata.getVideoHost().equals(Hostname)){
                                 new File("./temp/"+videodata.getVideoID()+".ts").delete();
                             }
@@ -99,7 +100,7 @@ public class HTTPServer extends Thread {
                                 jedis.auth(RedisPass);
                             }
 
-                            jedis.del("nico-img:ExecuteLog:"+id);
+                            jedis.del("nico-img:CacheLog:"+id);
                             jedis.close();
                             jedisPool.close();
 
@@ -117,12 +118,12 @@ public class HTTPServer extends Thread {
                     jedis.keys("nico-img:CacheLog:*").forEach((id)->{
                         VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
                         long l = new Date().getTime() - videoData.getVideoCreateTime();
-
-                        if (l >= 864000000L){
+                        //System.out.println("debug "+l);
+                        if (l >= 86400000L){
                             if (videoData.getVideoHost().equals(Hostname)){
                                 new File("./temp/"+videoData.getVideoID()+".ts").delete();
                             }
-                            jedis.del("nico-img:ExecuteLog:"+id);
+                            jedis.del(id);
                         }
                     });
                     jedis.close();
