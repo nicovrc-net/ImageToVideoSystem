@@ -42,24 +42,28 @@ public class HTTPServer extends Thread {
 
     private final String Hostname;
 
+    private final String SaveFolder;
+    private final String OverrideURL;
+
 
     public HTTPServer() throws Exception {
-        if (!new File("./temp").exists()){
-            boolean mkdir = new File("./temp").mkdir();
-            if (!mkdir){
-                throw new Exception("フォルダ生成失敗");
-            }
-        }
+
 
         if (!new File("./config.yml").exists()){
-            String text = "RedisServer: ''\n" +
-                    "RedisPort: 6379\n" +
-                    "RedisPass: ''\n" +
-                    "\n" +
-                    "Hostname: 'i2v.nicovrc.net'\n" +
-                    "\n" +
-                    "ProxyServer: ''\n" +
-                    "ProxyPort: 3128";
+            String text = """
+                    RedisServer: ''
+                    RedisPort: 6379
+                    RedisPass: ''
+
+                    Hostname: 'i2v.nicovrc.net'
+
+                    ProxyServer: ''
+                    ProxyPort: 3128
+
+                    SaveFolder: ''
+                    OverrideURL: ''
+            """;
+
 
             FileWriter file = new FileWriter("./config.yml");
             PrintWriter pw = new PrintWriter(new BufferedWriter(file));
@@ -80,6 +84,25 @@ public class HTTPServer extends Thread {
 
         Hostname = input.string("Hostname");
 
+        SaveFolder = input.string("SaveFolder");
+        OverrideURL = input.string("OverrideURL");
+
+        if (SaveFolder.isEmpty()){
+            if (!new File("./temp").exists()){
+                boolean mkdir = new File("./temp").mkdir();
+                if (!mkdir){
+                    throw new Exception("フォルダ生成失敗");
+                }
+            }
+        } else {
+            if (!new File(SaveFolder).exists()){
+                boolean mkdir = new File(SaveFolder).mkdir();
+                if (!mkdir){
+                    throw new Exception("フォルダ生成失敗");
+                }
+            }
+        }
+
         Timer timer = new Timer();
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -91,7 +114,11 @@ public class HTTPServer extends Thread {
                         //System.out.println(l);
                         if (l >= 86400000L){
                             if (videodata.getVideoHost().equals(Hostname)){
-                                new File("./temp/"+videodata.getVideoID()+".ts").delete();
+                                if (SaveFolder.isEmpty()){
+                                    new File("./temp/"+videodata.getVideoID()+".ts").delete();
+                                } else{
+                                    new File(SaveFolder+videodata.getVideoID()+".ts").delete();
+                                }
                             }
                             DataList.remove(id);
                             JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
@@ -121,7 +148,11 @@ public class HTTPServer extends Thread {
                         //System.out.println("debug "+l);
                         if (l >= 86400000L){
                             if (videoData.getVideoHost().equals(Hostname)){
-                                new File("./temp/"+videoData.getVideoID()+".ts").delete();
+                                if (SaveFolder.isEmpty()){
+                                    new File("./temp/"+videoData.getVideoID()+".ts").delete();
+                                } else{
+                                    new File(SaveFolder+videoData.getVideoID()+".ts").delete();
+                                }
                             }
                             jedis.del(id);
                         }
@@ -406,8 +437,14 @@ public class HTTPServer extends Thread {
                                 response = client.newCall(request_image).execute();
                                 if (response.body() != null){
                                     byte[] bytes = response.body().bytes();
-                                    if (new File("./temp/temp-"+fileId).exists()){
-                                        new File("./temp/temp-"+fileId).delete();
+                                    if (SaveFolder.isEmpty()){
+                                        if (new File("./temp/temp-"+fileId).exists()){
+                                            new File("./temp/temp-"+fileId).delete();
+                                        }
+                                    } else {
+                                        if (new File(SaveFolder+"temp-"+fileId).exists()){
+                                            new File(SaveFolder+"temp-"+fileId).delete();
+                                        }
                                     }
                                     FileOutputStream stream = new FileOutputStream("./temp/temp-" + fileId);
                                     stream.write(bytes);
@@ -416,7 +453,13 @@ public class HTTPServer extends Thread {
                                 response.close();
 
                                 // 動画生成
-                                BufferedImage read = ImageIO.read(new File("./temp/temp-" + fileId));
+                                final BufferedImage read;
+                                if (SaveFolder.isEmpty()){
+                                    read = ImageIO.read(new File("./temp/temp-" + fileId));
+                                } else {
+                                    read = ImageIO.read(new File(SaveFolder+"temp-" + fileId));
+                                }
+
                                 int width = (read.getWidth() * 2) / 2;
                                 int height = (read.getHeight() * 2) / 2;
 
@@ -427,9 +470,14 @@ public class HTTPServer extends Thread {
                                     width = (int) (width * ((double) (1920 / height)));
                                 }
 
-                                String[] command = {"/bin/ffmpeg","-loop","1","-i","./temp/temp-"+fileId,"-i","./out.mp3","-c:v","libx264","-vf","transpose=0","-vf","scale="+width+":"+height,"-pix_fmt","yuv420p","-c:a","copy","-map","0:v:0","-map","1:a:0","-t","5","-r","60","./temp/"+fileId+".ts"};
-                                Runtime runtime = Runtime.getRuntime();
-                                Process exec = runtime.exec(command);
+                                final String[] command;
+                                if (SaveFolder.isEmpty()){
+                                    command = new String[]{"/bin/ffmpeg", "-loop", "1", "-i", "./temp/temp-" + fileId, "-i", "./out.mp3", "-c:v", "libx264", "-vf", "transpose=0", "-vf", "scale=" + width + ":" + height, "-pix_fmt", "yuv420p", "-c:a", "copy", "-map", "0:v:0", "-map", "1:a:0", "-t", "5", "-r", "60", "./temp/" + fileId + ".ts"};
+                                } else {
+                                    command = new String[]{"/bin/ffmpeg","-loop","1","-i",SaveFolder+"temp-"+fileId,"-i","./out.mp3","-c:v","libx264","-vf","transpose=0","-vf","scale="+width+":"+height,"-pix_fmt","yuv420p","-c:a","copy","-map","0:v:0","-map","1:a:0","-t","5","-r","60",SaveFolder+fileId+".ts"};
+                                }
+                                final Runtime runtime = Runtime.getRuntime();
+                                final Process exec = runtime.exec(command);
                                 exec.waitFor();
 
                                 //System.out.println(exec.exitValue());
@@ -439,7 +487,11 @@ public class HTTPServer extends Thread {
                                     s = exec.inputReader().readLine();
                                 }
 
-                                new File("./temp/temp-" + fileId).delete();
+                                if (SaveFolder.isEmpty()){
+                                    new File("./temp/temp-" + fileId).delete();
+                                } else {
+                                    new File(SaveFolder+"temp-" + fileId).delete();
+                                }
 
                                 String m3u8 = "#EXTM3U\n"+
                                         "#EXT-X-VERSION:3\n" +
@@ -529,7 +581,7 @@ public class HTTPServer extends Thread {
                                 //System.out.println("VideoData Found");
 
                                 if (URIText.endsWith("main.m3u8")){
-                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", DataList.get(VideoID) != null ? "" : "https://"+VideoData.getVideoHost()).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
+                                    final String t = VideoData.getM3u8().replaceAll("#hostname#", OverrideURL.isEmpty() ? (DataList.get(VideoID) != null ? "" : "https://"+VideoData.getVideoHost()) : OverrideURL).replaceAll("#id#", UUID.randomUUID().toString().split("-")[0]);
 
                                     out.write(("HTTP/"+httpVersion+" 200 OK\nContent-Type: application/vnd.apple.mpegurl; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                     if (isGET){
@@ -544,7 +596,12 @@ public class HTTPServer extends Thread {
                                 }
 
                                 if (URIText.endsWith(".ts")){
-                                    File file = new File("./temp/" + VideoID + ".ts");
+                                    final File file;
+                                    if (SaveFolder.isEmpty()){
+                                        file = new File("./temp/" + VideoID + ".ts");
+                                    } else {
+                                        file = new File(SaveFolder + VideoID + ".ts");
+                                    }
                                     if (!file.exists()){
                                         out.write(("HTTP/"+httpVersion+" 404 Not Found\nContent-Type: text/plain; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                         if (isGET){
