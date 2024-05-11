@@ -51,17 +51,17 @@ public class HTTPServer extends Thread {
 
         if (!new File("./config.yml").exists()){
             String text = """
-                    RedisServer: ''
-                    RedisPort: 6379
-                    RedisPass: ''
+RedisServer: ''
+RedisPort: 6379
+RedisPass: ''
 
-                    Hostname: 'i2v.nicovrc.net'
+Hostname: 'i2v.nicovrc.net'
 
-                    ProxyServer: ''
-                    ProxyPort: 3128
+ProxyServer: ''
+ProxyPort: 3128
 
-                    SaveFolder: ''
-                    OverrideURL: ''
+SaveFolder: ''
+OverrideURL: ''
             """;
 
 
@@ -437,16 +437,19 @@ public class HTTPServer extends Thread {
                                 response = client.newCall(request_image).execute();
                                 if (response.body() != null){
                                     byte[] bytes = response.body().bytes();
+                                    final FileOutputStream stream;
                                     if (SaveFolder.isEmpty()){
                                         if (new File("./temp/temp-"+fileId).exists()){
                                             new File("./temp/temp-"+fileId).delete();
                                         }
+                                        stream = new FileOutputStream("./temp/temp-" + fileId);
                                     } else {
                                         if (new File(SaveFolder+"temp-"+fileId).exists()){
                                             new File(SaveFolder+"temp-"+fileId).delete();
                                         }
+                                        stream = new FileOutputStream(SaveFolder+"temp-" + fileId);
                                     }
-                                    FileOutputStream stream = new FileOutputStream("./temp/temp-" + fileId);
+
                                     stream.write(bytes);
                                     stream.close();
                                 }
@@ -643,6 +646,7 @@ public class HTTPServer extends Thread {
                 } catch (Exception e) {
                     e.printStackTrace();
                     temp[0] = false;
+                    svSock.close();
                 }
             }
         } catch (Exception e){
