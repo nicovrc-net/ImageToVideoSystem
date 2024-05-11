@@ -396,6 +396,7 @@ public class HTTPServer extends Thread {
                                 response.close();
 
                                 final String fileId = UUID.randomUUID().toString().split("-")[0] + "_" + new Date().getTime();
+                                //System.out.println(fileId);
 
                                 // 画像DL
                                 Request request_image = new Request.Builder()
@@ -431,7 +432,7 @@ public class HTTPServer extends Thread {
                                 Process exec = runtime.exec(command);
                                 exec.waitFor();
 
-                                System.out.println(exec.exitValue());
+                                //System.out.println(exec.exitValue());
                                 String s = exec.inputReader().readLine();
                                 while (s != null) {
                                     System.out.println(s);
