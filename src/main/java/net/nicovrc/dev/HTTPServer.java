@@ -10,7 +10,6 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import javax.imageio.ImageIO;
-import javax.xml.crypto.Data;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.InetSocketAddress;
