@@ -467,7 +467,7 @@ OverrideURL: ''
 
                                 if (width >= 1920){
                                     height = (int) ((double)height * ((double)1920 / (double)width));
-                                    System.out.println(((double)height * ((double)1920 / (double)width)));
+                                    //System.out.println(((double)height * ((double)1920 / (double)width)));
                                     width = 1920;
                                 }
                                 if (height >= 1920){
