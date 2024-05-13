@@ -466,10 +466,13 @@ OverrideURL: ''
                                 int height = (read.getHeight() * 2) / 2;
 
                                 if (width >= 1920){
-                                    height = (int) (height * ((double) (1920 / width)));
+                                    height = (int) ((double)height * ((double)1920 / (double)width));
+                                    System.out.println(((double)height * ((double)1920 / (double)width)));
+                                    width = 1920;
                                 }
                                 if (height >= 1920){
-                                    width = (int) (width * ((double) (1920 / height)));
+                                    width = (int) ((double)width * ((double)1920 / (double)height));
+                                    height = 1920;
                                 }
 
                                 final String[] command;
