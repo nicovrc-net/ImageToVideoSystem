@@ -295,6 +295,11 @@ OverrideURL: ''
                                         return;
                                     }
                                     if (VideoData.getImageURL().equals(url)){
+                                        // 同じホストで存在しない場合はハッシュから削除してスキップ
+                                        if (VideoData.getVideoHost().equals(Hostname) && !new File((SaveFolder.isEmpty() ? "./temp/" : SaveFolder) + VideoData.getVideoID() + ".ts").exists()){
+                                            DataList.remove(ID);
+                                            return;
+                                        }
                                         isFound[0] = true;
 
                                         try {
@@ -349,6 +354,12 @@ OverrideURL: ''
 
                                         VideoData videoData = new Gson().fromJson(jedis.get(id), VideoData.class);
                                         if (videoData.getImageURL().equals(url)){
+                                            // 同じホストで存在しない場合はRedisのデータを削除してスキップ
+                                            if (videoData.getVideoHost().equals(Hostname) && !new File((SaveFolder.isEmpty() ? "./temp/" : SaveFolder) + videoData.getVideoID() + ".ts").exists()){
+                                                jedis.del(id);
+                                                return;
+                                            }
+
                                             isFound[0] = true;
                                             try {
                                                 out.write(("HTTP/" + httpVersion + " 302 Found\nDate: " + new Date() + "\nLocation: /" + videoData.getVideoID() + "/main.m3u8" + "\n\n").getBytes(StandardCharsets.UTF_8));
