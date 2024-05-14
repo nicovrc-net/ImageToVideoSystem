@@ -114,9 +114,9 @@ OverrideURL: ''
                         if (l >= 86400000L){
                             if (videodata.getVideoHost().equals(Hostname)){
                                 if (SaveFolder.isEmpty()){
-                                    new File("./temp/"+videodata.getVideoID()+".ts").delete();
+                                    new File("./temp/" + id + ".ts").delete();
                                 } else{
-                                    new File(SaveFolder+videodata.getVideoID()+".ts").delete();
+                                    new File(SaveFolder + id + ".ts").delete();
                                 }
                             }
                             DataList.remove(id);
@@ -130,7 +130,31 @@ OverrideURL: ''
                             jedis.close();
                             jedisPool.close();
 
+                            return;
                         }
+
+                        // tsファイルがなかったらキャッシュ削除
+                        if (videodata.getVideoHost().equals(Hostname)){
+                            if (SaveFolder.isEmpty() && new File("./temp/" + id +".ts").exists()){
+                                return;
+                            }
+
+                            if (!SaveFolder.isEmpty() && new File(SaveFolder + id +".ts").exists()){
+                                return;
+                            }
+                        }
+
+                        DataList.remove(id);
+                        JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                        Jedis jedis = jedisPool.getResource();
+                        if (!RedisPass.isEmpty()){
+                            jedis.auth(RedisPass);
+                        }
+
+                        jedis.del("nico-img:CacheLog:"+id);
+                        jedis.close();
+                        jedisPool.close();
+
                     });
                 }).start();
 
@@ -154,6 +178,17 @@ OverrideURL: ''
                                 }
                             }
                             jedis.del(id);
+                        }
+
+                        // tsファイルがなかったらキャッシュ削除
+                        if (videoData.getVideoHost().equals(Hostname)){
+                            if (SaveFolder.isEmpty() && !new File("./temp/"+videoData.getVideoID()+".ts").exists()) {
+                                jedis.del(id);
+                            }
+
+                            if (!SaveFolder.isEmpty() && !new File(SaveFolder+videoData.getVideoID()+".ts").exists()){
+                                jedis.del(id);
+                            }
                         }
                     });
                     jedis.close();
