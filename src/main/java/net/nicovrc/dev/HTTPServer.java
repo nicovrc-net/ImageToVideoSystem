@@ -568,7 +568,7 @@ OverrideURL: ''
                                 }
 
                                 if (VideoData != null){
-                                    if (VideoData.getVideoHost().equals(Hostname) && !new File(SaveFolder.isEmpty() ? "./temp/" : SaveFolder + VideoID + ".ts").exists()){
+                                    if (VideoData.getVideoHost().equals(Hostname) && !new File((SaveFolder.isEmpty() ? "./temp/" : SaveFolder) + VideoID + ".ts").exists()){
                                         // tsファイルがない場合は配列とRedisから削除
                                         new Thread(()->{
                                             DataList.remove(VideoID);
