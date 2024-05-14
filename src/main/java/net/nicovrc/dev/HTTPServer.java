@@ -102,6 +102,18 @@ OverrideURL: ''
             }
         }
 
+        if (!new File("./out.mp3").exists()){
+            // 無音ファイルがなかったら生成
+            try {
+                Runtime runtime = Runtime.getRuntime();
+                Process exec = runtime.exec(new String[]{"/bin/ffmpeg","-f lavfi","-i","anullsrc=r=44100:cl=mono","-t","5","-aq","1","-c:a","libmp3lame","out.mp3"});
+                exec.waitFor();
+            } catch (Exception e){
+                e.printStackTrace();
+                return;
+            }
+        }
+
         Timer timer = new Timer();
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
