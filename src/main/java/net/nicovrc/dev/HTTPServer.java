@@ -246,18 +246,15 @@ OverrideURL: ''
                                 return;
                             }
 
-                            if (URIText.startsWith("/?url=")){
+                            matcher = UrlMatch.matcher(httpRequest);
+                            boolean UrlMatchFlag = matcher.find();
+                            if (UrlMatchFlag){
                                 // 画像から動画生成
                                 final OkHttpClient.Builder builder = new OkHttpClient.Builder();
                                 final OkHttpClient client = ProxyIP.isEmpty() ? new OkHttpClient() : builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ProxyIP, ProxyPort))).build();
 
-                                matcher = UrlMatch.matcher(httpRequest);
-                                final String url;
-                                if (matcher.find()){
-                                    url = matcher.group(2);
-                                } else {
-                                    url = "";
-                                }
+
+                                final String url = matcher.group(2);
                                 //System.out.println(url);
 
                                 if (!url.startsWith("http")){
@@ -570,6 +567,28 @@ OverrideURL: ''
                                     jedisPool.close();
                                 }
 
+                                if (VideoData != null){
+                                    if (VideoData.getVideoHost().equals(Hostname) && !new File(SaveFolder.isEmpty() ? "./temp/" : SaveFolder + VideoID + ".ts").exists()){
+                                        // tsファイルがない場合は配列とRedisから削除
+                                        new Thread(()->{
+                                            DataList.remove(VideoID);
+
+                                            JedisPool jedisPool = new JedisPool(RedisServer, RedisPort);
+                                            Jedis jedis = jedisPool.getResource();
+                                            if (!RedisPass.isEmpty()){
+                                                jedis.auth(RedisPass);
+                                            }
+
+                                            jedis.del("nico-img:CacheLog:"+VideoID);
+
+                                            jedis.close();
+                                            jedisPool.close();
+                                        }).start();
+
+                                        VideoData = null;
+                                    }
+                                }
+
                                 if (VideoData == null){
                                     out.write(("HTTP/"+httpVersion+" 404 Not Found\nContent-Type: text/plain; charset=utf-8\n\n").getBytes(StandardCharsets.UTF_8));
                                     if (isGET){
@@ -617,6 +636,7 @@ OverrideURL: ''
                                         in.close();
                                         out.close();
                                         sock.close();
+
                                         return;
                                     }
 
