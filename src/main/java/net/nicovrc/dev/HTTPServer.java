@@ -337,7 +337,8 @@ OverrideURL: ''
                                 }
 
                                 boolean[] isFound = {false};
-                                DataList.forEach((ID, VideoData)->{
+                                HashMap<String, VideoData> temp1 = new HashMap<>(DataList);
+                                temp1.forEach((ID, VideoData)->{
                                     if (isFound[0]){
                                         return;
                                     }
